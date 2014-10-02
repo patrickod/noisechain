@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+
+import argparse
+import subprocess
+import requests
+from BeautifulSoup import BeautifulSoup, SoupStrainer
+
+URL = "https://www.noisebridge.net/pipermail/%s"
+
+def list_archives(list_name):
+   index_page = requests.get(URL % list_name)
+   links = BeautifulSoup(index_page.text, parseOnlyThese=SoupStrainer("a"))
+   links = map(lambda x: x['href'], links)
+   return filter(lambda x: '.txt.gz' in x, links)
+
+def construct_archive_url(archive, list_name):
+    archive_filename = "%s/%s" % (list_name, archive)
+    return URL % archive_filename
+
+def fetch_archives(archives, list_name):
+    subprocess.call(["mkdir", "-p", "archives/%s" % list_name])
+    for archive in archives:
+        url = construct_archive_url(archive, list_name)
+        subprocess.call([
+            "curl",
+            "-L",
+            url,
+            "-o"
+            "archives/%s/%s" % (list_name, archive)
+        ])
+
+def download_archives_for_list_name(list_name):
+    archives = list_archives(list_name)
+    fetch_archives(archives, list_name)
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description='Fetch NB mailing list archives')
+    parser.add_argument('list', help='the mailing list for which you want to fetch archives')
+    args = parser.parse_args()
+
+    download_archives_for_list_name(args.list)
